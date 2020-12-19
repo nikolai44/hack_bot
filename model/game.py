@@ -150,18 +150,12 @@ class Game:
 
     async def get_command(self, websocket):
         while not self.bot_ready:
-            command: str = self.process.stdout.readline().decode('utf-8').strip()
+            command = self.process.stdout.readline().decode('utf-8').strip()
             if command == "end":
                 self.bot_ready = True
-            if command.startswith("debug: "):
-                print("Отладка")
-                print(command)
             elif command:
                 print("OUT >>> Send command: " + command)
                 msg = GameActions(self.game_server, self.game_id, json.loads(command))
                 await websocket.send(msg.send_message())
-
-
-
 
 

@@ -47,8 +47,8 @@ class MagGame(BaseGame):
         else:
             min_my = min(self.my_buildings, key=lambda x: x.creeps_count)
             max_enemy = max(self.enemy_buildings, key=lambda x: x.creeps_count)
-            if max_enemy.creeps_count - min_my.creeps_count > 15:
-                print("разница > 15 юнитов, свапаем башни", file=sys.stderr)
+            if max_enemy.creeps_count - min_my.creeps_count > 10:
+                print("разница > 10 юнитов, свапаем башни", file=sys.stderr)
                 print(game_teams.my_her.exchange(max_enemy.id, min_my.id))
 
     def chuma(self):
@@ -65,15 +65,17 @@ class MagGame(BaseGame):
         print(game_teams.my_her.plague(self.enemy_buildings[0].id))
 
     def strategy_abyls(self):
-        # проверяем доступность абилки Обмен башнями
-        print()
-        if self.state.ability_ready(AbilityType.Build_exchange):
-            print("доступен свап башен", file=sys.stderr)
-            self.build_exchange()
-        # проверяем доступность абилки Чума
-        if self.state.ability_ready(AbilityType.Plague):
-            print("доступна чума", file=sys.stderr)
-            self.chuma()
+        if self.enemy_buildings:
+            # проверяем доступность абилки Чума
+            if self.state.ability_ready(AbilityType.Plague):
+                print("доступна чума", file=sys.stderr)
+                self.chuma()
+
+            # проверяем доступность абилки Обмен башнями
+            print()
+            if self.state.ability_ready(AbilityType.Build_exchange):
+                print("доступен свап башен", file=sys.stderr)
+                self.build_exchange()
 
     def speed_send(self, from_towers: List[Building], to: Building, size: int=1000):
         for tower in from_towers:
@@ -90,27 +92,28 @@ class MagGame(BaseGame):
         print(self.pos, file=sys.stderr)
         print("Tick: ", self.tick, file=sys.stderr)
         if self.pos == "Стартовая позиция":
+            self.start_pos = self.my_buildings[0]
             self.pos = "Занимаем стартовые башни"
             self.goto = game_map.get_nearest_towers(self.my_buildings[0].id, self.neutral_buildings)[:2]
             print("Соседних башен ", len(self.goto), file=sys.stderr)
-        elif self.pos == "Занимаем стартовые башни":
+        if self.pos == "Занимаем стартовые башни":
             # if self.my_buildings[0] < 22:
             #     return
             if self.tick == 25:
-                print(f"Ускоряемся, координаты {game_map.get_tower_location(self.my_buildings[0].id)}", file=sys.stderr)
-                print(self.my_buildings[0].id, file=sys.stderr)
-                print(game_teams.my_her.speed_up(game_map.get_tower_location(self.my_buildings[0].id)))
+                print(f"Ускоряемся, координаты {game_map.get_tower_location(self.start_pos.id)}", file=sys.stderr)
+                print(self.start_pos.id, file=sys.stderr)
+                print(game_teams.my_her.speed_up(game_map.get_tower_location(self.start_pos.id)))
                 return
-            if self.tick == 2:
+            if self.tick == 1:
                 print(f"Захватываем башни {','.join(str(f.id) for f in self.goto)}", file=sys.stderr)
-                half = self.my_buildings[0].creeps_count / 2
+                half = self.start_pos.creeps_count / 2
                 for near in self.goto:
-                    self.speed_send([self.my_buildings[0]], near, half)
+                    self.speed_send([self.start_pos], near, half)
                 return
             if self.tick < 40:
                 return
             self.pos = "Захват территорий"
-        elif self.pos == "Захват территорий":
+        if self.pos == "Захват территорий":
             # считаем сколько есть воинов в башнях
             army_in_towers_count = 0
             for my_building in self.my_buildings:
@@ -118,8 +121,14 @@ class MagGame(BaseGame):
             print(f"В башнях {army_in_towers_count} солдат", file=sys.stderr)
 
             i = 0
-            nearest = game_map.get_nearest_towers(self.my_buildings[0].id,
-                                                  self.neutral_buildings + self.enemy_buildings)
+            if self.neutral_buildings + self.enemy_buildings:
+                nearest = game_map.get_nearest_towers(self.start_pos.id,
+                                                      self.neutral_buildings + self.enemy_buildings)
+            elif self.neutral_buildings:
+                nearest = game_map.get_nearest_towers(self.start_pos.id, self.neutral_buildings)
+            else:
+                nearest = game_map.get_nearest_towers(self.start_pos.id, self.enemy_buildings)
+
             while (army_in_towers_count > 12):
                 # занимаем башни
                 self.speed_send(self.my_buildings, nearest[i], 12)

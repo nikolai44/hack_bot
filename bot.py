@@ -79,14 +79,15 @@ class MagGame(BaseGame):
 
     def speed_send(self, from_towers: List[Building], to: Building, size: int=1000):
         for tower in from_towers:
-            if tower.creeps_count <= size:
-                print("отправляем всех из башни", file=sys.stderr)
-                print(game_teams.my_her.move(tower.id, to.id, 1))
-                tower.creeps_count = 0
-            else:
-                print(f"отправляем {size}({int(size / tower.creeps_count * 100)}%) солдат из башни {tower.id}", file=sys.stderr)
-                print(game_teams.my_her.move(tower.id, to.id, size / tower.creeps_count))
-                tower.creeps_count -= size
+            if tower.id not in self.attacked:
+                if tower.creeps_count <= size:
+                    print("отправляем всех из башни", file=sys.stderr)
+                    print(game_teams.my_her.move(tower.id, to.id, 1))
+                    tower.creeps_count = 0
+                else:
+                    print(f"отправляем {size}({int(size / tower.creeps_count * 100)}%) солдат из башни {tower.id}", file=sys.stderr)
+                    print(game_teams.my_her.move(tower.id, to.id, size / tower.creeps_count))
+                    tower.creeps_count -= size
 
     def strategy_moves(self):
         print(self.pos, file=sys.stderr)
@@ -117,11 +118,12 @@ class MagGame(BaseGame):
             # считаем сколько есть воинов в башнях
             army_in_towers_count = 0
             for my_building in self.my_buildings:
-                army_in_towers_count += my_building.creeps_count
+                if my_building.id not in self.attacked:
+                    army_in_towers_count += my_building.creeps_count
             print(f"В башнях {army_in_towers_count} солдат", file=sys.stderr)
 
             i = 0
-            if self.neutral_buildings + self.enemy_buildings:
+            if self.neutral_buildings and self.enemy_buildings:
                 nearest = game_map.get_nearest_towers(self.start_pos.id,
                                                       self.neutral_buildings + self.enemy_buildings)
             elif self.neutral_buildings:
@@ -144,7 +146,7 @@ class MagGame(BaseGame):
                 self.my_buildings = self.state.my_buildings()
                 self.my_squads: List[Squad] = self.state.my_squads()
                 self.enemy_buildings = self.state.enemy_buildings()
-                self.enemy_squads = self.state.enemy_squads()
+                self.enemy_squads: List[Squad] = self.state.enemy_squads()
                 self.neutral_buildings = self.state.neutral_buildings()
                 self.forges_buildings = self.state.forges_buildings()
 
@@ -161,6 +163,12 @@ class MagGame(BaseGame):
                     for ability in enemy_abyls:
                         print(f"Враг наслал {ability.ability}", file=sys.stderr)
 
+                self.attacked = []
+                for squad in self.enemy_squads:
+                    print(f"Врагу идти ", squad.way.left, file=sys.stderr)
+                    if squad.to_id in self.my_buildings and squad.way.left < 2.0 \
+                        and squad.creeps_count > 3:
+                        self.attacked.append(squad.to_id)
                 self.strategy_moves()
 
                 self.tick += 1

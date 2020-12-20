@@ -52,17 +52,10 @@ class MagGame(BaseGame):
                 print(game_teams.my_her.exchange(max_enemy.id, min_my.id))
 
     def chuma(self):
-        # для эффективности применяем ближе к башне
-        if len(self.my_squads) > 1:
-            # сколько тиков первому отряду осталось до башни
-            left_to_aim = self.my_squads[0].way.left / self.my_squads[0].speed
-            # если первый отряд находится в зоне инициализации абилки
-            plague_parameters = game_params.get_ability_parameters(AbilityType.Plague)
-            if plague_parameters.cast_time + 30 > left_to_aim:
-                print("Применяем чуму к начальному зданию врага", file=sys.stderr)
-                print(game_teams.my_her.plague(self.enemy_buildings[0].id))
-        print("Применяем чуму к начальному зданию врага", file=sys.stderr)
-        print(game_teams.my_her.plague(self.enemy_buildings[0].id))
+        max_enemy = max(self.enemy_buildings, key=lambda x: x.creeps_count)
+        if max_enemy.creeps_count > 10:
+            print("Применяем чуму к самому заселённому зданию врага", file=sys.stderr)
+            print(game_teams.my_her.plague(max_enemy.id))
 
     def strategy_abyls(self):
         if self.enemy_buildings:
@@ -143,6 +136,9 @@ class MagGame(BaseGame):
                     continue
                 if self.army_count_b(n) < building.creeps_count * 1.3:
                     continue
+                if self.state.ability_ready(AbilityType.Speed_up):
+                    location = game_map.get_tower_location(n[0].id)
+                    game_teams.my_her.speed_up(location)
                 print("Захватываем окружённую башню", file=sys.stderr)
                 self.speed_send(n[:3], building, building.creeps_count * 1.3)
 
@@ -198,7 +194,6 @@ class MagGame(BaseGame):
             # finally:
             #     """  Требуется для получения нового состояния игры  """
             #     print("end")
-
 
 
 game_event_loop = MagGame()

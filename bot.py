@@ -89,6 +89,19 @@ class MagGame(BaseGame):
                 army_in_towers_count += my_building.creeps_count
         return army_in_towers_count
 
+    def get_tower_location(self, tower_id):
+        for link in game_map.links:
+            if link["From"] == tower_id:
+                return {
+                    "x": link["Vectors"][0]["x"],
+                    "y": link["Vectors"][0]["y"]
+                }
+            elif link["To"] == tower_id:
+                return {
+                    "x": link["Vectors"][1]["x"],
+                    "y": link["Vectors"][1]["y"]
+                }
+
     def strategy_moves(self):
         print(self.pos, file=sys.stderr)
         print("Tick: ", self.tick, file=sys.stderr)
@@ -100,10 +113,10 @@ class MagGame(BaseGame):
         if self.pos == "Занимаем стартовые башни":
             # if self.my_buildings[0] < 22:
             #     return
-            if self.tick == 25:
-                print(f"Ускоряемся, координаты {game_map.get_tower_location(self.start_pos.id)}", file=sys.stderr)
+            if self.tick == 12:
+                print(f"Ускоряемся, координаты {self.get_tower_location(self.start_pos.id)}", file=sys.stderr)
                 print(self.start_pos.id, file=sys.stderr)
-                print(game_teams.my_her.speed_up(game_map.get_tower_location(self.start_pos.id)))
+                print(game_teams.my_her.speed_up(self.get_tower_location(self.start_pos.id)))
                 return
             if self.tick == 1:
                 print(f"Захватываем башни {','.join(str(f.id) for f in self.goto)}", file=sys.stderr)
@@ -131,25 +144,31 @@ class MagGame(BaseGame):
                     continue
                 if game_map.towers_distance(building.id, n[0].id) + \
                     game_map.towers_distance(building.id, n[0].id) + \
-                    game_map.towers_distance(building.id, n[0].id) > 5:
+                    game_map.towers_distance(building.id, n[0].id) > 12:
                     print("Окружать не будем, далеко", file=sys.stderr)
                     continue
                 if self.army_count_b(n) < building.creeps_count * 1.3:
                     continue
                 if self.state.ability_ready(AbilityType.Speed_up):
-                    location = game_map.get_tower_location(n[0].id)
+                    print(f"Ускоряемся, координаты {self.get_tower_location(n[0].id)}", file=sys.stderr)
+                    location = self.get_tower_location(n[0].id)
                     game_teams.my_her.speed_up(location)
                 print("Захватываем окружённую башню", file=sys.stderr)
                 self.speed_send(n[:3], building, building.creeps_count * 1.3)
 
             i = 0
-            b = [b for b in self.neutral_buildings + self.enemy_buildings if b.id != self.start_pos.id]
+            b = [b for b in self.neutral_buildings + self.enemy_buildings if b.id != self.start_pos.id and
+                 b.id not in self.popular]
             nearest = game_map.get_nearest_towers(self.start_pos.id, b)
-            while (army_in_towers_count > 12):
-                # занимаем башни
-                self.speed_send(self.my_buildings, nearest[i], 12)
-                army_in_towers_count -= 12
-                i += 1
+            if nearest:
+                while (army_in_towers_count > 13):
+                    # занимаем башни
+                    self.speed_send(self.my_buildings, nearest[i], 13)
+                    army_in_towers_count -= 13
+                    i += 1
+                if self.state.ability_ready(AbilityType.Speed_up):
+                    print(f"Ускоряемся, координаты {self.get_tower_location(nearest[0].id)}", file=sys.stderr)
+                    game_teams.my_her.speed_up(self.get_tower_location(nearest[0].id))
         else:
             return
 
@@ -180,20 +199,30 @@ class MagGame(BaseGame):
                 self.attacked = []
                 my_buildings_ids = set([b.id for b in self.my_buildings])
                 for squad in self.enemy_squads:
-                    if squad.to_id in my_buildings_ids and squad.way.left < 7.0:
+                    if squad.to_id in my_buildings_ids and squad.way.left < 8.0:
                         self.attacked.append(squad.to_id)
                         print(f"Враг атакует башню {squad.to_id}, расстояние {squad.way.left}", file=sys.stderr)
                 self.strategy_moves()
 
+                # ищем башни, к которым уже идёт толпа и не направляем к ним
+                popular = dict()
+                for squad in self.my_squads:
+                    if squad.to_id in popular:
+                        popular[squad.to_id] += squad.creeps_count
+                    else:
+                        popular[squad.to_id] = squad.creeps_count
+                self.popular = set([k for k in popular if popular[k] > 13])
+                print(','.join(map(str, self.popular)), " слишком популярны, не шлём туда", file=sys.stderr)
+
                 self.tick += 1
-                print("Задержка чтобы не забанили 0.3 сек", file=sys.stderr)
-                time.sleep(0.3)
+                # print("Задержка чтобы не забанили 0.1 сек", file=sys.stderr)
+                # time.sleep(0.05)
+                # print("end")
+            except Exception as e:
+                 print(f"!!!!!!!!!!!!!!!!!!!!!УПАЛО!!!!!!!!!!!!\n", e, file=sys.stderr)
+            finally:
+                """  Требуется для получения нового состояния игры  """
                 print("end")
-            except:
-                 raise
-            # finally:
-            #     """  Требуется для получения нового состояния игры  """
-            #     print("end")
 
 
 game_event_loop = MagGame()

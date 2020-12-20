@@ -43,12 +43,13 @@ class MagGame(BaseGame):
         build_exchange = self.state.enemy_active_abilities(AbilityType.Build_exchange)
         if len(build_exchange) > 0:
             print("противник свапнул башни, отсвапываем", file=sys.stderr)
-            print(game_teams.my_her.exchange(self.enemy_buildings[0].id, self.my_buildings[0].id))
+            print(game_teams.my_her.exchange(build_exchange.second_target_tower_id,
+                                             build_exchange.first_target_tower_id))
         else:
             min_my = min(self.my_buildings, key=lambda x: x.creeps_count)
             max_enemy = max(self.enemy_buildings, key=lambda x: x.creeps_count)
             if max_enemy.creeps_count - min_my.creeps_count > 10:
-                print("разница > 10 юнитов, свапаем башни", file=sys.stderr)
+                print("разница > 20 юнитов, свапаем башни", file=sys.stderr)
                 print(game_teams.my_her.exchange(max_enemy.id, min_my.id))
 
     def chuma(self):

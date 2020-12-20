@@ -89,6 +89,13 @@ class MagGame(BaseGame):
                     print(game_teams.my_her.move(tower.id, to.id, size / tower.creeps_count))
                     tower.creeps_count -= size
 
+    def army_count_b(self, buildings: List[Building]):
+        army_in_towers_count = 0
+        for my_building in buildings:
+            if my_building.id not in self.attacked:
+                army_in_towers_count += my_building.creeps_count
+        return army_in_towers_count
+
     def strategy_moves(self):
         print(self.pos, file=sys.stderr)
         print("Tick: ", self.tick, file=sys.stderr)
@@ -116,21 +123,32 @@ class MagGame(BaseGame):
             self.pos = "Захват территорий"
         if self.pos == "Захват территорий":
             # считаем сколько есть воинов в башнях
-            army_in_towers_count = 0
-            for my_building in self.my_buildings:
-                if my_building.id not in self.attacked:
-                    army_in_towers_count += my_building.creeps_count
+            army_in_towers_count = self.army_count_b(self.my_buildings)
             print(f"В башнях {army_in_towers_count} солдат", file=sys.stderr)
 
-            i = 0
-            if self.neutral_buildings and self.enemy_buildings:
-                nearest = game_map.get_nearest_towers(self.start_pos.id,
-                                                      self.neutral_buildings + self.enemy_buildings)
-            elif self.neutral_buildings:
-                nearest = game_map.get_nearest_towers(self.start_pos.id, self.neutral_buildings)
-            else:
-                nearest = game_map.get_nearest_towers(self.start_pos.id, self.enemy_buildings)
+            # поиск окружённых
+            for building in self.enemy_buildings:
+                b = [b for b in self.my_buildings + self.enemy_buildings if b.id != building.id]
+                n: List[Building] = game_map.get_nearest_towers(building.id, b)
+                if len(n) < 3:
+                    continue
+                if n[0] not in self.my_buildings or \
+                    n[1] not in self.my_buildings or \
+                    n[2] not in self.my_buildings:
+                    continue
+                if game_map.towers_distance(building.id, n[0].id) + \
+                    game_map.towers_distance(building.id, n[0].id) + \
+                    game_map.towers_distance(building.id, n[0].id) > 5:
+                    print("Окружать не будем, далеко", file=sys.stderr)
+                    continue
+                if self.army_count_b(n) < building.creeps_count * 1.3:
+                    continue
+                print("Захватываем окружённую башню", file=sys.stderr)
+                self.speed_send(n[:3], building, building.creeps_count * 1.3)
 
+            i = 0
+            b = [b for b in self.neutral_buildings + self.enemy_buildings if b.id != self.start_pos.id]
+            nearest = game_map.get_nearest_towers(self.start_pos.id, b)
             while (army_in_towers_count > 12):
                 # занимаем башни
                 self.speed_send(self.my_buildings, nearest[i], 12)
@@ -164,26 +182,23 @@ class MagGame(BaseGame):
                         print(f"Враг наслал {ability.ability}", file=sys.stderr)
 
                 self.attacked = []
+                my_buildings_ids = set([b.id for b in self.my_buildings])
                 for squad in self.enemy_squads:
-                    print(f"Врагу идти ", squad.way.left, file=sys.stderr)
-                    if squad.to_id in self.my_buildings and squad.way.left < 2.0 \
-                        and squad.creeps_count > 3:
+                    if squad.to_id in my_buildings_ids and squad.way.left < 7.0:
                         self.attacked.append(squad.to_id)
+                        print(f"Враг атакует башню {squad.to_id}, расстояние {squad.way.left}", file=sys.stderr)
                 self.strategy_moves()
 
                 self.tick += 1
                 print("Задержка чтобы не забанили 0.3 сек", file=sys.stderr)
                 time.sleep(0.3)
-            except Exception as e:
-                 raise Exception(e)
-            finally:
-                """  Требуется для получения нового состояния игры  """
                 print("end")
-            # except Exception as e:
-            #     print(str(e), file=sys.stderr)
+            except:
+                 raise
             # finally:
             #     """  Требуется для получения нового состояния игры  """
             #     print("end")
+
 
 
 game_event_loop = MagGame()

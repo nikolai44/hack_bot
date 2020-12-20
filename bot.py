@@ -33,6 +33,7 @@ class BaseGame:
 
 
 class MagGame(BaseGame):
+    THRESHOLD = 13
     pos = "Стартовая позиция"
     tick = 1
     def __init__(self):
@@ -45,12 +46,12 @@ class MagGame(BaseGame):
             print("противник свапнул башни, отсвапываем", file=sys.stderr)
             print(game_teams.my_her.exchange(build_exchange.second_target_tower_id,
                                              build_exchange.first_target_tower_id))
-        else:
-            min_my = min(self.my_buildings, key=lambda x: x.creeps_count)
-            max_enemy = max(self.enemy_buildings, key=lambda x: x.creeps_count)
-            if max_enemy.creeps_count - min_my.creeps_count > 10:
-                print("разница > 20 юнитов, свапаем башни", file=sys.stderr)
-                print(game_teams.my_her.exchange(max_enemy.id, min_my.id))
+        # else:
+        #     min_my = min(self.my_buildings, key=lambda x: x.creeps_count)
+        #     max_enemy = max(self.enemy_buildings, key=lambda x: x.creeps_count)
+        #     if max_enemy.creeps_count - min_my.creeps_count > 10:
+        #         print("разница > 20 юнитов, свапаем башни", file=sys.stderr)
+        #         print(game_teams.my_her.exchange(max_enemy.id, min_my.id))
 
     def chuma(self):
         max_enemy = max(self.enemy_buildings, key=lambda x: x.creeps_count)
@@ -66,10 +67,12 @@ class MagGame(BaseGame):
                 self.chuma()
 
             # проверяем доступность абилки Обмен башнями
-            print()
             if self.state.ability_ready(AbilityType.Build_exchange):
                 print("доступен свап башен", file=sys.stderr)
                 self.build_exchange()
+
+        if self.state.ability_ready(AbilityType.Speed_up):
+            print("доступно ускорение", file=sys.stderr)
 
     def speed_send(self, from_towers: List[Building], to: Building, size: int=1000):
         for tower in from_towers:
@@ -162,10 +165,10 @@ class MagGame(BaseGame):
                  b.id not in self.popular]
             nearest = game_map.get_nearest_towers(self.start_pos.id, b)
             if nearest:
-                while (army_in_towers_count > 13):
+                while (army_in_towers_count > self.THRESHOLD):
                     # занимаем башни
-                    self.speed_send(self.my_buildings, nearest[i], 13)
-                    army_in_towers_count -= 13
+                    self.speed_send(self.my_buildings, nearest[i], self.THRESHOLD)
+                    army_in_towers_count -= self.THRESHOLD
                     i += 1
                 if self.state.ability_ready(AbilityType.Speed_up):
                     print(f"Ускоряемся, координаты {self.get_tower_location(nearest[0].id)}", file=sys.stderr)
@@ -212,9 +215,12 @@ class MagGame(BaseGame):
                         popular[squad.to_id] += squad.creeps_count
                     else:
                         popular[squad.to_id] = squad.creeps_count
-                self.popular = set([k for k in popular if popular[k] > 13])
+                self.popular = set([k for k in popular if popular[k] > self.THRESHOLD])
                 print(','.join(map(str, self.popular)), " слишком популярны, не шлём туда", file=sys.stderr)
 
+                if self.tick % 500 == 499:
+                    self.THRESHOLD += 1
+                self.THRESHOLD = min(self.THRESHOLD, 18)
                 self.tick += 1
                 # print("Задержка чтобы не забанили 0.1 сек", file=sys.stderr)
                 # time.sleep(0.05)
